@@ -1,30 +1,23 @@
 import React, { useMemo, useState } from "react";
 
 /*
-  Small Account Trading Decision App v2
-  改进点：
-  1. 用一手数据计算 QQQ 是否弱于 SPY。
-  2. 用账户净值计算今日亏损%、本周亏损%、阶段高点回撤%。
-  3. 用板块 ETF 涨跌幅自动判断板块是否强于大盘。
-  4. 用 OHLCV 自动判断近期疑似放量大阴线。
-  5. 用个股/QQQ/SPY 涨跌幅自动判断个股是否强于大盘。
-  6. 简化硬性否决项术语。
-  7. 给盈亏比显示具体参考等级。
-  8. 替换首页说明为风险说明。
+  小资金交易决策系统 v3
+  目标：新手小白直接从 Moomoo 找到原始数据，不做手算。
+  设计：尽量用大白话，少术语；需要比较和计算的地方交给系统。
 */
 
-function EmojiIcon({ symbol }) {
-  return <span className="inline-flex h-5 w-5 items-center justify-center text-lg leading-none">{symbol}</span>;
+function Icon({ children }) {
+  return <span className="inline-flex h-5 w-5 items-center justify-center text-lg leading-none">{children}</span>;
 }
 
-function Card({ title, icon, children, subtitle }) {
+function Card({ title, subtitle, icon, children }) {
   return (
     <section className="rounded-2xl border bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start gap-3">
         <div className="rounded-xl bg-slate-100 p-2">{icon}</div>
         <div>
           <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-          {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+          {subtitle && <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p>}
         </div>
       </div>
       {children}
@@ -32,29 +25,7 @@ function Card({ title, icon, children, subtitle }) {
   );
 }
 
-function Toggle({ label, value, onChange, danger = false }) {
-  return (
-    <label
-      className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 text-sm transition ${
-        value
-          ? danger
-            ? "border-red-300 bg-red-50"
-            : "border-emerald-300 bg-emerald-50"
-          : "border-slate-200 bg-slate-50 hover:bg-slate-100"
-      }`}
-    >
-      <span className="pr-3 text-slate-800">{label}</span>
-      <input
-        type="checkbox"
-        checked={value}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-5 w-5"
-      />
-    </label>
-  );
-}
-
-function NumberInput({ label, value, onChange, prefix = "", suffix = "", placeholder }) {
+function NumberInput({ label, value, onChange, prefix = "", suffix = "", hint = "" }) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
@@ -63,31 +34,31 @@ function NumberInput({ label, value, onChange, prefix = "", suffix = "", placeho
         <input
           type="number"
           value={value}
-          placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
           className="w-full bg-transparent px-2 py-3 text-sm outline-none"
         />
         {suffix && <span className="text-sm text-slate-500">{suffix}</span>}
       </div>
+      {hint && <span className="mt-1 block text-xs leading-5 text-slate-400">{hint}</span>}
     </label>
   );
 }
 
-function TextInput({ label, value, onChange, placeholder }) {
+function TextInput({ label, value, onChange, hint = "" }) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
       <input
         value={value}
-        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none"
       />
+      {hint && <span className="mt-1 block text-xs leading-5 text-slate-400">{hint}</span>}
     </label>
   );
 }
 
-function Select({ label, value, onChange, options }) {
+function Select({ label, value, onChange, options, hint = "" }) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
@@ -100,7 +71,42 @@ function Select({ label, value, onChange, options }) {
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
+      {hint && <span className="mt-1 block text-xs leading-5 text-slate-400">{hint}</span>}
     </label>
+  );
+}
+
+function Toggle({ label, value, onChange, danger = false }) {
+  return (
+    <label
+      className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 text-sm transition ${
+        value
+          ? danger
+            ? "border-red-300 bg-red-50 text-red-900"
+            : "border-emerald-300 bg-emerald-50 text-emerald-900"
+          : "border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100"
+      }`}
+    >
+      <span className="leading-5">{label}</span>
+      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="h-5 w-5 shrink-0" />
+    </label>
+  );
+}
+
+function Info({ label, value, note = "", tone = "slate" }) {
+  const cls = {
+    slate: "bg-slate-50 text-slate-900",
+    green: "bg-emerald-50 text-emerald-800",
+    yellow: "bg-amber-50 text-amber-800",
+    red: "bg-red-50 text-red-800",
+  }[tone] || "bg-slate-50 text-slate-900";
+
+  return (
+    <div className={`rounded-xl p-3 ${cls}`}>
+      <p className="text-xs opacity-70">{label}</p>
+      <p className="mt-1 text-lg font-bold">{value}</p>
+      {note && <p className="mt-1 text-xs leading-5 opacity-80">{note}</p>}
+    </div>
   );
 }
 
@@ -119,28 +125,67 @@ function ScoreBar({ label, value, max }) {
   );
 }
 
-function InfoBox({ label, value, note, tone = "slate" }) {
-  const tones = {
-    slate: "bg-slate-50 text-slate-900",
-    green: "bg-emerald-50 text-emerald-800",
-    yellow: "bg-amber-50 text-amber-800",
-    red: "bg-red-50 text-red-800",
-  };
-  return (
-    <div className={`rounded-xl p-3 ${tones[tone] || tones.slate}`}>
-      <p className="text-xs opacity-70">{label}</p>
-      <p className="mt-1 text-lg font-bold">{value}</p>
-      {note && <p className="mt-1 text-xs opacity-80">{note}</p>}
-    </div>
-  );
-}
+const sectorOptions = [
+  { value: "semiconductor", label: "半导体：看 SMH 或 SOXX" },
+  { value: "bigtech", label: "大型科技：看 QQQ 或 XLK" },
+  { value: "software", label: "软件/云服务：看 IGV 或 QQQ" },
+  { value: "ev", label: "电动车/消费成长：看 QQQ 或 XLY" },
+  { value: "finance", label: "金融银行：看 XLF" },
+  { value: "energy", label: "能源石油：看 XLE" },
+  { value: "health", label: "医药医疗：看 XLV" },
+  { value: "index", label: "我交易的是指数 ETF：直接看 SPY/QQQ" },
+  { value: "other", label: "其他：自己选择最接近的板块 ETF" },
+];
 
 const setupOptions = [
-  { value: "breakout", label: "A：平台突破" },
-  { value: "pullback", label: "B：强趋势回踩" },
-  { value: "earnings", label: "C：财报后确认" },
-  { value: "other", label: "其他：非法买点" },
+  {
+    value: "breakout",
+    label: "横着憋了一段时间，今天带量往上冲出来",
+  },
+  {
+    value: "pullback",
+    label: "本来就在涨，回调几天后又重新往上走",
+  },
+  {
+    value: "earnings",
+    label: "财报已经公布，市场用上涨表示认可",
+  },
+  {
+    value: "other",
+    label: "都不是，只是我觉得它可能会涨",
+  },
 ];
+
+const setupDescriptions = {
+  breakout: "适合那种前面横着走了几天，价格像被压住一样，今天突然冲出前面的价格范围，而且成交量比平时大。核心不是追涨，而是确认它从整理区往上突破。",
+  pullback: "适合那种本来已经在上涨的强势股票，中间休息、回调几天，但没有跌坏；随后重新站起来继续往上涨。核心是买强势股的二次启动，不是抄底弱票。",
+  earnings: "适合财报已经公布之后，股价跳涨、成交量变大，并且没有很快跌回去。核心是等市场先表态认可财报，再考虑跟随，不是在财报前赌大小。",
+  other: "如果你的理由只是便宜、别人推荐、怕错过、已经涨很多但还想追、或者财报前赌一把，那就不属于系统买点。",
+};
+
+const setupLabels = {
+  breakout: [
+    "前面至少横着走了几天，不是已经连续暴涨后才想追",
+    "今天收盘价明显高过前面那段横盘区间",
+    "今天成交量明显比平时大",
+    "今天收盘位置偏高，不是尾盘砸下来",
+    "没有明显冲高回落的大上影线",
+  ],
+  pullback: [
+    "这只股票之前已经在上涨，不是长期下跌股",
+    "这几天只是正常回调，不是一路崩下去",
+    "回调时成交量变小，说明不是明显砸盘",
+    "今天重新上涨，价格重新站回短期均线附近",
+    "没有跌破最近一段时间的重要低点",
+  ],
+  earnings: [
+    "财报已经公布，不是在财报前赌博",
+    "财报后股价跳涨或明显上涨",
+    "财报后成交量明显比平时大",
+    "没有很快跌回财报公布前的价格附近",
+    "回踩后还能重新走强",
+  ],
+};
 
 const riskOptions = [
   { value: "0.02", label: "2%：轻仓试错" },
@@ -149,58 +194,46 @@ const riskOptions = [
   { value: "0.08", label: "8%：极限模式，本月最多一次" },
 ];
 
-const setupLabels = {
-  breakout: ["横盘至少 5-10 个交易日", "收盘突破平台上沿", "成交量明显放大", "收盘在当天偏高位置", "不是冲高回落"],
-  pullback: ["原本处于上涨趋势", "回踩 EMA10 / EMA20", "回踩时缩量", "重新放量站回 EMA5 / EMA10", "没有跌破前低"],
-  earnings: ["财报已经公布", "财报后跳空上涨", "成交量明显放大", "没有立刻回补缺口", "回踩后重新走强"],
-};
-
 const initial = {
-  account: "3000",
   currentEquity: "3000",
   dayStartEquity: "3000",
   weekStartEquity: "3000",
   stageHighEquity: "3000",
   consecutiveLosses: "0",
   symbol: "INTC",
-  currentPrice: "",
-  buyPrice: "",
-  stopPrice: "",
-  firstTarget: "",
 
-  spyDay: "",
-  spy5: "",
-  spy20: "",
-  qqqDay: "",
-  qqq5: "",
-  qqq20: "",
+  spyToday: "",
+  spy5d: "",
+  spy1m: "",
+  qqqToday: "",
+  qqq5d: "",
+  qqq1m: "",
   vix: "",
   spyAbove20: false,
   spyAbove50: false,
   qqqAbove20: false,
   qqqAbove50: false,
-  panicDay: false,
 
-  sectorName: "SMH",
-  sectorDay: "",
-  sector5: "",
-  sector20: "",
+  sectorType: "semiconductor",
+  sectorToday: "",
+  sector5d: "",
+  sector1m: "",
   sectorAbove20: false,
   leadersStrong: false,
 
-  stockDay: "",
-  stock5: "",
-  stock20: "",
-  priceAbove20: false,
-  ema20Up: false,
-  ema5Above20: false,
+  stockToday: "",
+  stock5d: "",
+  stock1m: "",
+  stockAbove20: false,
+  stock20Up: false,
+  shortLineAbove20: false,
 
-  bearOpen: "",
-  bearHigh: "",
-  bearLow: "",
-  bearClose: "",
-  bearVolume: "",
-  bearAvgVolume10: "",
+  weakOpen: "",
+  weakHigh: "",
+  weakLow: "",
+  weakClose: "",
+  weakVolume: "",
+  weakAvgVolume10: "",
 
   setupType: "breakout",
   setupChecks: {
@@ -212,250 +245,232 @@ const initial = {
   hardVeto: {
     earningsSoon: false,
     gapNoPullback: false,
-    farFromEma10: false,
+    chasing: false,
     upperShadow: false,
     noStop: false,
     fomo: false,
     revenge: false,
     badLiquidity: false,
   },
+
+  buyPrice: "",
+  stopPrice: "",
+  targetPrice: "",
   riskPct: "0.05",
 };
 
-function toNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+function n(v) {
+  const num = Number(v);
+  return Number.isFinite(num) ? num : 0;
 }
 
-function hasValue(v) {
+function filled(v) {
   return String(v ?? "").trim() !== "";
 }
 
-function pctLoss(start, current) {
-  const s = toNum(start);
-  const c = toNum(current);
+function lossPct(start, current) {
+  const s = n(start);
+  const c = n(current);
   if (s <= 0 || c <= 0) return 0;
   return Math.max(0, ((s - c) / s) * 100);
 }
 
-function drawdown(high, current) {
-  const h = toNum(high);
-  const c = toNum(current);
+function drawdownPct(high, current) {
+  const h = n(high);
+  const c = n(current);
   if (h <= 0 || c <= 0) return 0;
   return Math.max(0, ((h - c) / h) * 100);
 }
 
-function compareReturns(a, b) {
-  if (!hasValue(a) || !hasValue(b)) return null;
-  return toNum(a) > toNum(b);
+function compare(a, b) {
+  if (!filled(a) || !filled(b)) return null;
+  return n(a) > n(b);
 }
 
-function countAvailableTrue(items) {
+function countComparison(items) {
   const available = items.filter((x) => x !== null);
-  const passed = available.filter(Boolean).length;
-  return { available: available.length, passed };
+  return {
+    available: available.length,
+    passed: available.filter(Boolean).length,
+  };
 }
 
-function inferQqqNotWeak(form) {
-  const checks = [
-    compareReturns(form.qqqDay, form.spyDay),
-    compareReturns(form.qqq5, form.spy5),
-    compareReturns(form.qqq20, form.spy20),
-  ];
-  const { available, passed } = countAvailableTrue(checks);
-  return { available, passed, ok: available >= 2 && passed >= 2 };
+function inferQqqNotWeak(f) {
+  const res = countComparison([
+    compare(f.qqqToday, f.spyToday),
+    compare(f.qqq5d, f.spy5d),
+    compare(f.qqq1m, f.spy1m),
+  ]);
+  return { ...res, ok: res.available >= 2 && res.passed >= 2 };
 }
 
-function inferSectorStrong(form) {
-  const checks = [
-    compareReturns(form.sectorDay, form.spyDay),
-    compareReturns(form.sector5, form.spy5),
-    compareReturns(form.sector20, form.spy20),
-    compareReturns(form.sectorDay, form.qqqDay),
-    compareReturns(form.sector5, form.qqq5),
-    compareReturns(form.sector20, form.qqq20),
-  ];
-  const { available, passed } = countAvailableTrue(checks);
-  return { available, passed, ok: available >= 3 && passed >= 3 };
+function inferSectorStrong(f) {
+  const res = countComparison([
+    compare(f.sectorToday, f.spyToday),
+    compare(f.sector5d, f.spy5d),
+    compare(f.sector1m, f.spy1m),
+    compare(f.sectorToday, f.qqqToday),
+    compare(f.sector5d, f.qqq5d),
+    compare(f.sector1m, f.qqq1m),
+  ]);
+  return { ...res, ok: res.available >= 3 && res.passed >= 3 };
 }
 
-function inferStockStrong(form) {
-  const checks = [
-    compareReturns(form.stockDay, form.qqqDay),
-    compareReturns(form.stock5, form.qqq5),
-    compareReturns(form.stock20, form.qqq20),
-    compareReturns(form.stockDay, form.spyDay),
-    compareReturns(form.stock5, form.spy5),
-    compareReturns(form.stock20, form.spy20),
-  ];
-  const { available, passed } = countAvailableTrue(checks);
-  return { available, passed, ok: available >= 3 && passed >= 3 };
+function inferStockStrong(f) {
+  const res = countComparison([
+    compare(f.stockToday, f.qqqToday),
+    compare(f.stock5d, f.qqq5d),
+    compare(f.stock1m, f.qqq1m),
+    compare(f.stockToday, f.spyToday),
+    compare(f.stock5d, f.spy5d),
+    compare(f.stock1m, f.spy1m),
+  ]);
+  return { ...res, ok: res.available >= 3 && res.passed >= 3 };
 }
 
-function calcBearCandle(form) {
-  const required = [form.bearOpen, form.bearHigh, form.bearLow, form.bearClose, form.bearVolume, form.bearAvgVolume10];
-  const complete = required.every(hasValue);
-  if (!complete) {
-    return { complete: false, isBear: false, bodyDropPct: 0, closePosition: 0, volumeRatio: 0 };
-  }
-  const open = toNum(form.bearOpen);
-  const high = toNum(form.bearHigh);
-  const low = toNum(form.bearLow);
-  const close = toNum(form.bearClose);
-  const volume = toNum(form.bearVolume);
-  const avg = toNum(form.bearAvgVolume10);
-  const bodyDropPct = open > 0 ? ((open - close) / open) * 100 : 0;
+function calcWeakCandle(f) {
+  const complete = [f.weakOpen, f.weakHigh, f.weakLow, f.weakClose, f.weakVolume, f.weakAvgVolume10].every(filled);
+  if (!complete) return { complete: false, isBad: false, dropPct: 0, closePlace: 0, volumeTimes: 0 };
+
+  const open = n(f.weakOpen);
+  const high = n(f.weakHigh);
+  const low = n(f.weakLow);
+  const close = n(f.weakClose);
+  const vol = n(f.weakVolume);
+  const avg = n(f.weakAvgVolume10);
+
+  const dropPct = open > 0 ? ((open - close) / open) * 100 : 0;
   const range = high - low;
-  const closePosition = range > 0 ? (close - low) / range : 1;
-  const volumeRatio = avg > 0 ? volume / avg : 0;
-  const isBear = close < open && bodyDropPct >= 2 && volumeRatio >= 1.5 && closePosition <= 0.3;
-  return { complete: true, isBear, bodyDropPct, closePosition, volumeRatio };
+  const closePlace = range > 0 ? (close - low) / range : 1;
+  const volumeTimes = avg > 0 ? vol / avg : 0;
+  const isBad = close < open && dropPct >= 2 && closePlace <= 0.3 && volumeTimes >= 1.5;
+
+  return { complete, isBad, dropPct, closePlace, volumeTimes };
 }
 
-function rrLabel(rr) {
-  if (!Number.isFinite(rr) || rr <= 0) return { text: "未计算", tone: "slate", note: "需要填写买入价、止损价、目标价" };
-  if (rr < 1) return { text: "很差", tone: "red", note: "赚得不够覆盖一次亏损，不交易" };
-  if (rr < 2) return { text: "不合格", tone: "red", note: "至少要达到 1:2" };
-  if (rr < 3) return { text: "合格", tone: "yellow", note: "可以交易，但不算顶级机会" };
-  return { text: "优秀", tone: "green", note: "具备高进攻的风险收益基础" };
+function rrInfo(rr) {
+  if (!Number.isFinite(rr) || rr <= 0) return { label: "未计算", tone: "slate", note: "需要填写买入价、止损价、目标价" };
+  if (rr < 1) return { label: "很差", tone: "red", note: "潜在利润还不够覆盖一次亏损" };
+  if (rr < 2) return { label: "不合格", tone: "red", note: "至少要达到 1:2，否则不交易" };
+  if (rr < 3) return { label: "合格", tone: "yellow", note: "可以交易，但不算顶级机会" };
+  return { label: "优秀", tone: "green", note: "具备高进攻的风险收益基础" };
 }
 
-function countTrue(values) {
-  return values.filter(Boolean).length;
+function countTrue(arr) {
+  return arr.filter(Boolean).length;
 }
 
-export function evaluateTrade(form) {
-  const currentEquity = toNum(form.currentEquity || form.account);
-  const account = currentEquity || toNum(form.account);
-  const dailyLoss = pctLoss(form.dayStartEquity, currentEquity);
-  const weeklyLoss = pctLoss(form.weekStartEquity, currentEquity);
-  const stageDrawdown = drawdown(form.stageHighEquity, currentEquity);
-  const losses = toNum(form.consecutiveLosses);
-  const vix = toNum(form.vix);
-
-  const qqqStrength = inferQqqNotWeak(form);
-  const sectorStrength = inferSectorStrong(form);
-  const stockStrength = inferStockStrong(form);
-  const bear = calcBearCandle(form);
+export function evaluateTrade(f) {
+  const account = n(f.currentEquity);
+  const todayLoss = lossPct(f.dayStartEquity, f.currentEquity);
+  const weekLoss = lossPct(f.weekStartEquity, f.currentEquity);
+  const dd = drawdownPct(f.stageHighEquity, f.currentEquity);
+  const qqq = inferQqqNotWeak(f);
+  const sector = inferSectorStrong(f);
+  const stock = inferStockStrong(f);
+  const weak = calcWeakCandle(f);
+  const vix = n(f.vix);
 
   const accountVeto = [];
-  if (dailyLoss >= 5) accountVeto.push("今天账户已经亏损 5% 以上：当天停止交易");
-  if (weeklyLoss >= 10) accountVeto.push("本周账户已经亏损 10% 以上：停止交易一周");
-  if (stageDrawdown >= 30) accountVeto.push("账户距离阶段最高点回撤 30% 以上：停止实盘两周");
-  if (losses >= 4) accountVeto.push("连续亏损 4 笔以上：停止交易一周");
+  if (todayLoss >= 5) accountVeto.push("今天账户亏损已经超过 5%，当天停止交易");
+  if (weekLoss >= 10) accountVeto.push("本周账户亏损已经超过 10%，停止交易一周");
+  if (dd >= 30) accountVeto.push("账户距离阶段最高点回撤超过 30%，停止实盘两周");
+  if (n(f.consecutiveLosses) >= 4) accountVeto.push("连续亏损 4 笔以上，停止交易一周");
 
   const marketVeto = [];
-  if (!form.spyAbove50 && !form.qqqAbove50) marketVeto.push("SPY 和 QQQ 都在 EMA50 下方：大盘环境不合格");
-  if (vix > 25) marketVeto.push("VIX 高于 25：市场恐慌，不开新仓");
-  if (form.panicDay) marketVeto.push("今天明显恐慌盘：不交易");
-
-  const hardVetoLabels = {
-    earningsSoon: "财报快到了：距离财报少于 3 个交易日",
-    gapNoPullback: "今天高开太多，而且没有回踩确认",
-    farFromEma10: "价格已经明显远离短期均线，不追高",
-    upperShadow: "今天冲高回落明显，可能是假突破",
-    noStop: "没有提前写止损价",
-    fomo: "我是因为怕错过才想买",
-    revenge: "我是因为亏损后想翻本才想买",
-    badLiquidity: "成交量太差，流动性不够",
-  };
-
-  const hardVeto = Object.entries(form.hardVeto || {})
-    .filter(([, v]) => Boolean(v))
-    .map(([k]) => hardVetoLabels[k] || k);
-
-  if (bear.complete && bear.isBear) hardVeto.push("最近 5 天内出现疑似放量大阴线");
-  if (!form.priceAbove20) hardVeto.push("个股价格不在 EMA20 上方");
-  if (!form.ema20Up) hardVeto.push("个股 EMA20 没有向上");
-
-  const marketScore = countTrue([
-    form.spyAbove20,
-    form.qqqAbove20,
-    qqqStrength.ok,
-    vix > 0 && vix < 20,
-  ]) * 5;
-
-  const sectorScore = countTrue([
-    form.sectorAbove20,
-    sectorStrength.ok,
-    form.leadersStrong,
-  ]) * 5;
-
-  const noBearVolumeScore = bear.complete ? !bear.isBear : false;
-
-  const trendScore = countTrue([
-    form.priceAbove20,
-    form.ema20Up,
-    form.ema5Above20,
-    stockStrength.ok,
-    noBearVolumeScore,
-  ]) * 4;
-
-  let setupScore = 0;
-  if (["breakout", "pullback", "earnings"].includes(form.setupType)) {
-    setupScore = countTrue(form.setupChecks?.[form.setupType] || []) * 5;
+  if (!f.spyAbove50 && !f.qqqAbove50) marketVeto.push("SPY 和 QQQ 都在 50 日均线下方，大盘环境太差");
+  if (vix > 25) marketVeto.push("VIX 高于 25，市场恐慌，不开新仓");
+  if (filled(f.spyToday) && filled(f.qqqToday) && n(f.spyToday) <= -1.5 && n(f.qqqToday) <= -1.5) {
+    marketVeto.push("SPY 和 QQQ 今天都明显下跌，自动判定为恐慌盘");
   }
 
-  const buy = toNum(form.buyPrice || form.currentPrice);
-  const stop = toNum(form.stopPrice);
-  const target = toNum(form.firstTarget);
+  const hardLabels = {
+    earningsSoon: "财报快到了：距离财报少于 3 个交易日",
+    gapNoPullback: "今天高开太多，而且没有回踩确认",
+    chasing: "价格已经离短期均线太远，我是在追高",
+    upperShadow: "今天冲高回落明显，可能是假突破",
+    noStop: "我还没有提前写止损价",
+    fomo: "我只是怕错过，所以想买",
+    revenge: "我亏了以后想翻本，所以想买",
+    badLiquidity: "成交量太差，买卖不够顺畅",
+  };
+
+  const hardVeto = Object.entries(f.hardVeto)
+    .filter(([, v]) => v)
+    .map(([k]) => hardLabels[k]);
+
+  if (!f.stockAbove20) hardVeto.push("个股价格不在 20 日均线上方");
+  if (!f.stock20Up) hardVeto.push("个股 20 日均线没有向上");
+  if (weak.complete && weak.isBad) hardVeto.push("最近 5 天内出现疑似放量大跌 K 线");
+
+  const marketScore = countTrue([f.spyAbove20, f.qqqAbove20, qqq.ok, vix > 0 && vix < 20]) * 5;
+  const sectorScore = countTrue([f.sectorAbove20, sector.ok, f.leadersStrong]) * 5;
+  const trendScore = countTrue([f.stockAbove20, f.stock20Up, f.shortLineAbove20, stock.ok, weak.complete && !weak.isBad]) * 4;
+
+  let setupScore = 0;
+  if (["breakout", "pullback", "earnings"].includes(f.setupType)) {
+    setupScore = countTrue(f.setupChecks[f.setupType]) * 5;
+  }
+
+  const buy = n(f.buyPrice);
+  const stop = n(f.stopPrice);
+  const target = n(f.targetPrice);
   const perShareRisk = buy > 0 && stop > 0 ? buy - stop : 0;
   const reward = target > 0 && buy > 0 ? target - buy : 0;
   const rr = perShareRisk > 0 && reward > 0 ? reward / perShareRisk : 0;
-  const selectedRiskPct = Number(form.riskPct);
+  const selectedRisk = Number(f.riskPct);
 
   let riskScore = 0;
   if (stop > 0) riskScore += 5;
   if (perShareRisk > 0) riskScore += 5;
   if (rr >= 2) riskScore += 5;
-  if (selectedRiskPct <= 0.08 && account * selectedRiskPct > 0) riskScore += 5;
+  if (selectedRisk <= 0.08 && account * selectedRisk > 0) riskScore += 5;
 
   const total = marketScore + sectorScore + trendScore + setupScore + riskScore;
-  const vetoes = [...accountVeto, ...marketVeto, ...hardVeto];
 
   const thresholdFail = [];
   if (marketScore < 10) thresholdFail.push("市场分低于 10：大盘环境不够好");
   if (sectorScore < 5) thresholdFail.push("板块分低于 5：板块不支持");
   if (trendScore < 12) thresholdFail.push("趋势分低于 12：个股不够强");
-  if (setupScore < 15) thresholdFail.push("买点分低于 15：买点不成立");
-  if (riskScore < 15) thresholdFail.push("风险分低于 15：止损或盈亏比不合格");
-  if (form.setupType === "other") thresholdFail.push("买点类型非法：不属于 A/B/C");
+  if (setupScore < 15) thresholdFail.push("买点分低于 15：买入位置不成立");
+  if (riskScore < 15) thresholdFail.push("风险分低于 15：止损或目标价不合格");
+  if (f.setupType === "other") thresholdFail.push("买入理由不属于系统允许的 3 种机会");
   if (perShareRisk <= 0) thresholdFail.push("止损价必须低于买入价");
+
+  const allVeto = [...accountVeto, ...marketVeto, ...hardVeto];
 
   let rawDecision = "禁止交易";
   let maxPositionPct = 0;
   let riskMode = 0;
 
-  if (vetoes.length || thresholdFail.length || total < 65) {
+  if (allVeto.length || thresholdFail.length || total < 65) {
     rawDecision = "禁止交易";
-    maxPositionPct = 0;
-    riskMode = 0;
   } else if (total < 75) {
     rawDecision = "轻仓试错";
     maxPositionPct = 0.3;
-    riskMode = Math.min(selectedRiskPct, 0.03);
+    riskMode = Math.min(selectedRisk, 0.03);
   } else if (total < 85) {
     rawDecision = "标准进攻";
     maxPositionPct = 0.7;
-    riskMode = Math.min(selectedRiskPct, 0.05);
+    riskMode = Math.min(selectedRisk, 0.05);
   } else {
     rawDecision = "高进攻 / 满仓候选";
-    maxPositionPct = 1.0;
-    riskMode = Math.min(selectedRiskPct, 0.08);
+    maxPositionPct = 1;
+    riskMode = Math.min(selectedRisk, 0.08);
   }
 
   if (marketScore < 15 && maxPositionPct > 0.7) {
+    rawDecision = "标准进攻，市场不够强，禁止满仓";
     maxPositionPct = 0.7;
-    rawDecision = "标准进攻，市场非绿灯，禁止满仓";
   }
 
-  if (stageDrawdown >= 20 && maxPositionPct > 0.5) {
+  if (dd >= 20 && maxPositionPct > 0.5) {
+    rawDecision = rawDecision.includes("禁止") ? rawDecision : `${rawDecision}，账户回撤超过 20%，仓位上限降到 50%`;
     maxPositionPct = 0.5;
-    rawDecision = rawDecision.includes("禁止") ? rawDecision : `${rawDecision}，账户回撤 ≥20%，仓位上限降至 50%`;
   }
 
-  const riskAllowedLoss = account * riskMode;
-  const riskShares = perShareRisk > 0 ? Math.floor(riskAllowedLoss / perShareRisk) : 0;
+  const maxLoss = account * riskMode;
+  const riskShares = perShareRisk > 0 ? Math.floor(maxLoss / perShareRisk) : 0;
   const positionShares = buy > 0 ? Math.floor((account * maxPositionPct) / buy) : 0;
   const shares = rawDecision.includes("禁止") ? 0 : Math.max(0, Math.min(riskShares, positionShares));
   const positionAmount = shares * buy;
@@ -464,23 +479,19 @@ export function evaluateTrade(form) {
 
   let finalAction = "取消：不交易";
   if (!rawDecision.includes("禁止") && shares > 0) {
-    finalAction = rawDecision.includes("轻仓")
-      ? "允许：轻仓试错"
-      : rawDecision.includes("标准")
-      ? "允许：标准进攻"
-      : "允许：高进攻";
-  } else if (!rawDecision.includes("禁止") && shares <= 0) {
+    finalAction = rawDecision.includes("轻仓") ? "允许：轻仓试错" : rawDecision.includes("标准") ? "允许：标准进攻" : "允许：高进攻";
+  } else if (!rawDecision.includes("禁止")) {
     finalAction = "等待：数据不完整，无法计算股数";
   }
 
   return {
-    dailyLoss,
-    weeklyLoss,
-    stageDrawdown,
-    qqqStrength,
-    sectorStrength,
-    stockStrength,
-    bear,
+    todayLoss,
+    weekLoss,
+    dd,
+    qqq,
+    sector,
+    stock,
+    weak,
     accountVeto,
     marketVeto,
     hardVeto,
@@ -496,10 +507,9 @@ export function evaluateTrade(form) {
     maxPositionPct,
     riskMode,
     perShareRisk,
-    reward,
     rr,
-    rrInfo: rrLabel(rr),
-    maxLoss: riskAllowedLoss,
+    rrInfo: rrInfo(rr),
+    maxLoss,
     riskShares,
     positionShares,
     shares,
@@ -509,115 +519,56 @@ export function evaluateTrade(form) {
   };
 }
 
-const allTrueSetup = [true, true, true, true, true];
-
+const goodSetup = [true, true, true, true, true];
 const TEST_CASES = [
   {
-    name: "高质量突破应允许高进攻",
+    name: "高质量机会应允许高进攻",
     form: {
       ...initial,
       currentEquity: "3000",
       dayStartEquity: "3000",
       weekStartEquity: "3000",
       stageHighEquity: "3000",
-      buyPrice: "100",
-      stopPrice: "95",
-      firstTarget: "115",
-      spyDay: "0.5", spy5: "2", spy20: "5",
-      qqqDay: "0.8", qqq5: "3", qqq20: "7",
-      sectorDay: "1.5", sector5: "5", sector20: "12",
-      stockDay: "2", stock5: "8", stock20: "20",
+      spyToday: "0.4", spy5d: "2", spy1m: "5",
+      qqqToday: "0.8", qqq5d: "3", qqq1m: "8",
+      sectorToday: "1.2", sector5d: "5", sector1m: "12",
+      stockToday: "2", stock5d: "8", stock1m: "18",
       vix: "16",
-      spyAbove20: true,
-      spyAbove50: true,
-      qqqAbove20: true,
-      qqqAbove50: true,
-      sectorAbove20: true,
-      leadersStrong: true,
-      priceAbove20: true,
-      ema20Up: true,
-      ema5Above20: true,
-      bearOpen: "100", bearHigh: "103", bearLow: "99", bearClose: "102", bearVolume: "100", bearAvgVolume10: "100",
+      spyAbove20: true, spyAbove50: true, qqqAbove20: true, qqqAbove50: true,
+      sectorAbove20: true, leadersStrong: true,
+      stockAbove20: true, stock20Up: true, shortLineAbove20: true,
+      weakOpen: "100", weakHigh: "102", weakLow: "99", weakClose: "101", weakVolume: "80", weakAvgVolume10: "100",
       setupType: "breakout",
-      setupChecks: { ...initial.setupChecks, breakout: allTrueSetup },
-      riskPct: "0.08",
+      setupChecks: { ...initial.setupChecks, breakout: goodSetup },
+      buyPrice: "100", stopPrice: "95", targetPrice: "115", riskPct: "0.08",
     },
-    expectActionIncludes: "允许：高进攻",
+    expect: "允许：高进攻",
   },
   {
-    name: "放量大阴线必须取消",
-    form: {
-      ...initial,
-      currentEquity: "3000",
-      dayStartEquity: "3000",
-      weekStartEquity: "3000",
-      stageHighEquity: "3000",
-      buyPrice: "100",
-      stopPrice: "95",
-      firstTarget: "115",
-      spyDay: "0.5", spy5: "2", spy20: "5",
-      qqqDay: "0.8", qqq5: "3", qqq20: "7",
-      sectorDay: "1.5", sector5: "5", sector20: "12",
-      stockDay: "2", stock5: "8", stock20: "20",
-      vix: "16",
-      spyAbove20: true,
-      spyAbove50: true,
-      qqqAbove20: true,
-      qqqAbove50: true,
-      sectorAbove20: true,
-      leadersStrong: true,
-      priceAbove20: true,
-      ema20Up: true,
-      ema5Above20: true,
-      bearOpen: "100", bearHigh: "101", bearLow: "94", bearClose: "95", bearVolume: "200", bearAvgVolume10: "100",
-      setupType: "breakout",
-      setupChecks: { ...initial.setupChecks, breakout: allTrueSetup },
-      riskPct: "0.08",
-    },
-    expectActionIncludes: "取消",
+    name: "VIX 高于 25 必须取消",
+    form: { ...initial, vix: "28", spyAbove50: true, qqqAbove50: true },
+    expect: "取消",
   },
   {
-    name: "阶段回撤 30% 必须取消",
-    form: {
-      ...initial,
-      currentEquity: "2100",
-      dayStartEquity: "2100",
-      weekStartEquity: "2100",
-      stageHighEquity: "3000",
-      buyPrice: "100",
-      stopPrice: "95",
-      firstTarget: "115",
-    },
-    expectActionIncludes: "取消",
-  },
-  {
-    name: "QQQ 跑输 SPY 时市场分下降",
-    form: {
-      ...initial,
-      spyDay: "1", spy5: "3", spy20: "6",
-      qqqDay: "0", qqq5: "1", qqq20: "2",
-    },
-    expectQqqOk: false,
+    name: "止损价高于买入价必须取消",
+    form: { ...initial, buyPrice: "100", stopPrice: "105", targetPrice: "115" },
+    expect: "取消",
   },
 ];
 
 function runTests() {
-  return TEST_CASES.map((test) => {
-    const result = evaluateTrade(test.form);
-    let passed = true;
-    if (test.expectActionIncludes) passed = result.finalAction.includes(test.expectActionIncludes);
-    if (typeof test.expectQqqOk === "boolean") passed = result.qqqStrength.ok === test.expectQqqOk;
-    return { ...test, result, passed };
+  return TEST_CASES.map((t) => {
+    const res = evaluateTrade(t.form);
+    return { ...t, result: res, passed: res.finalAction.includes(t.expect) };
   });
 }
 
 function TestPanel() {
   const tests = useMemo(() => runTests(), []);
-  const passedCount = tests.filter((t) => t.passed).length;
-
+  const passed = tests.filter((t) => t.passed).length;
   return (
-    <Card title="内置规则测试" icon={<EmojiIcon symbol="🧪" />} subtitle="验证核心判断逻辑是否正常。不是行情回测。">
-      <div className="mb-3 rounded-xl bg-slate-100 p-3 text-sm font-medium text-slate-700">通过：{passedCount}/{tests.length}</div>
+    <Card title="内置规则测试" icon={<Icon>🧪</Icon>} subtitle="防止核心判断逻辑被改坏。不是行情回测。">
+      <div className="mb-3 rounded-xl bg-slate-100 p-3 text-sm font-medium text-slate-700">通过：{passed}/{tests.length}</div>
       <div className="space-y-2">
         {tests.map((t) => (
           <div key={t.name} className={`rounded-xl border p-3 text-sm ${t.passed ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
@@ -638,7 +589,7 @@ export default function TradingDecisionApp() {
   const [showTests, setShowTests] = useState(false);
   const update = (key, value) => setForm((f) => ({ ...f, [key]: value }));
   const updateHard = (key, value) => setForm((f) => ({ ...f, hardVeto: { ...f.hardVeto, [key]: value } }));
-  const updateSetupCheck = (type, idx, value) => {
+  const updateSetup = (type, idx, value) => {
     setForm((f) => {
       const next = [...f.setupChecks[type]];
       next[idx] = value;
@@ -647,8 +598,8 @@ export default function TradingDecisionApp() {
   };
 
   const result = useMemo(() => evaluateTrade(form), [form]);
+  const issues = [...result.accountVeto, ...result.marketVeto, ...result.hardVeto, ...result.thresholdFail];
   const isCancel = result.finalAction.includes("取消");
-  const allIssues = [...result.accountVeto, ...result.marketVeto, ...result.hardVeto, ...result.thresholdFail];
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
@@ -671,144 +622,143 @@ export default function TradingDecisionApp() {
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <main className="space-y-6">
-            <Card title="1. 账户数据：自动计算亏损和回撤" icon={<EmojiIcon symbol="🛡️" />} subtitle="你只填账户净值，系统自动算今日亏损、本周亏损和阶段回撤。">
+            <Card title="1. 账户数据：只填 Moomoo 账户里能看到的数字" icon={<Icon>🛡️</Icon>} subtitle="填当前资产、今天开始前资产、本周开始前资产、历史最高资产；系统自己算亏损和回撤。">
               <div className="grid gap-4 md:grid-cols-2">
-                <NumberInput label="当前账户净值" value={form.currentEquity} onChange={(v) => update("currentEquity", v)} prefix="$" />
-                <NumberInput label="今天开盘前账户净值" value={form.dayStartEquity} onChange={(v) => update("dayStartEquity", v)} prefix="$" />
-                <NumberInput label="本周开始账户净值" value={form.weekStartEquity} onChange={(v) => update("weekStartEquity", v)} prefix="$" />
-                <NumberInput label="阶段最高账户净值" value={form.stageHighEquity} onChange={(v) => update("stageHighEquity", v)} prefix="$" />
-                <NumberInput label="连续亏损笔数" value={form.consecutiveLosses} onChange={(v) => update("consecutiveLosses", v)} suffix="笔" />
-                <TextInput label="股票代码" value={form.symbol} onChange={(v) => update("symbol", v.toUpperCase())} placeholder="INTC" />
+                <NumberInput label="当前账户总资产" value={form.currentEquity} onChange={(v) => update("currentEquity", v)} prefix="$" />
+                <NumberInput label="今天开始前账户总资产" value={form.dayStartEquity} onChange={(v) => update("dayStartEquity", v)} prefix="$" />
+                <NumberInput label="本周开始前账户总资产" value={form.weekStartEquity} onChange={(v) => update("weekStartEquity", v)} prefix="$" />
+                <NumberInput label="你账户曾经到过的最高总资产" value={form.stageHighEquity} onChange={(v) => update("stageHighEquity", v)} prefix="$" />
+                <NumberInput label="最近连续亏损交易次数" value={form.consecutiveLosses} onChange={(v) => update("consecutiveLosses", v)} suffix="笔" />
+                <TextInput label="准备交易的股票代码" value={form.symbol} onChange={(v) => update("symbol", v.toUpperCase())} />
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <InfoBox label="今日亏损" value={`${result.dailyLoss.toFixed(2)}%`} tone={result.dailyLoss >= 5 ? "red" : "slate"} note="≥5% 当天停手" />
-                <InfoBox label="本周亏损" value={`${result.weeklyLoss.toFixed(2)}%`} tone={result.weeklyLoss >= 10 ? "red" : "slate"} note="≥10% 停止交易一周" />
-                <InfoBox label="阶段回撤" value={`${result.stageDrawdown.toFixed(2)}%`} tone={result.stageDrawdown >= 20 ? "red" : "slate"} note="≥20% 降仓；≥30% 停手" />
+                <Info label="今天账户亏损" value={`${result.todayLoss.toFixed(2)}%`} tone={result.todayLoss >= 5 ? "red" : "slate"} note="≥5% 当天停手" />
+                <Info label="本周账户亏损" value={`${result.weekLoss.toFixed(2)}%`} tone={result.weekLoss >= 10 ? "red" : "slate"} note="≥10% 停止交易一周" />
+                <Info label="距离历史高点回撤" value={`${result.dd.toFixed(2)}%`} tone={result.dd >= 20 ? "red" : "slate"} note="≥20% 降仓；≥30% 停手" />
               </div>
             </Card>
 
-            <Card title="2. 大盘数据：自动判断 QQQ 是否弱于 SPY" icon={<EmojiIcon symbol="🌦️" />} subtitle="输入 SPY 和 QQQ 的当日、5日、20日涨跌幅，系统自动比较。">
+            <Card title="2. 大盘数据：从 Moomoo 直接抄涨跌幅" icon={<Icon>🌦️</Icon>} subtitle="搜索 SPY 和 QQQ，抄今天、5日、1个月涨跌幅。系统会自动判断 QQQ 有没有弱于 SPY，也会自动判断恐慌盘。">
               <div className="grid gap-4 md:grid-cols-3">
-                <NumberInput label="SPY 当日涨跌幅" value={form.spyDay} onChange={(v) => update("spyDay", v)} suffix="%" />
-                <NumberInput label="SPY 5日涨跌幅" value={form.spy5} onChange={(v) => update("spy5", v)} suffix="%" />
-                <NumberInput label="SPY 20日涨跌幅" value={form.spy20} onChange={(v) => update("spy20", v)} suffix="%" />
-                <NumberInput label="QQQ 当日涨跌幅" value={form.qqqDay} onChange={(v) => update("qqqDay", v)} suffix="%" />
-                <NumberInput label="QQQ 5日涨跌幅" value={form.qqq5} onChange={(v) => update("qqq5", v)} suffix="%" />
-                <NumberInput label="QQQ 20日涨跌幅" value={form.qqq20} onChange={(v) => update("qqq20", v)} suffix="%" />
-                <NumberInput label="VIX 当前值" value={form.vix} onChange={(v) => update("vix", v)} />
+                <NumberInput label="SPY 今天涨跌幅" value={form.spyToday} onChange={(v) => update("spyToday", v)} suffix="%" hint="Moomoo 股票页面价格旁边可见" />
+                <NumberInput label="SPY 5日涨跌幅" value={form.spy5d} onChange={(v) => update("spy5d", v)} suffix="%" hint="Moomoo 切到 5D 查看" />
+                <NumberInput label="SPY 1个月涨跌幅" value={form.spy1m} onChange={(v) => update("spy1m", v)} suffix="%" hint="Moomoo 切到 1M 查看" />
+                <NumberInput label="QQQ 今天涨跌幅" value={form.qqqToday} onChange={(v) => update("qqqToday", v)} suffix="%" />
+                <NumberInput label="QQQ 5日涨跌幅" value={form.qqq5d} onChange={(v) => update("qqq5d", v)} suffix="%" />
+                <NumberInput label="QQQ 1个月涨跌幅" value={form.qqq1m} onChange={(v) => update("qqq1m", v)} suffix="%" />
+                <NumberInput label="VIX 当前数值" value={form.vix} onChange={(v) => update("vix", v)} hint="Moomoo 搜索 VIX，直接抄数值" />
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <Toggle label="SPY 在 EMA20 上方" value={form.spyAbove20} onChange={(v) => update("spyAbove20", v)} />
-                <Toggle label="SPY 在 EMA50 上方" value={form.spyAbove50} onChange={(v) => update("spyAbove50", v)} />
-                <Toggle label="QQQ 在 EMA20 上方" value={form.qqqAbove20} onChange={(v) => update("qqqAbove20", v)} />
-                <Toggle label="QQQ 在 EMA50 上方" value={form.qqqAbove50} onChange={(v) => update("qqqAbove50", v)} />
-                <Toggle label="今天明显恐慌盘" value={form.panicDay} onChange={(v) => update("panicDay", v)} danger />
+                <Toggle label="SPY 当前价格在 20 日均线之上" value={form.spyAbove20} onChange={(v) => update("spyAbove20", v)} />
+                <Toggle label="SPY 当前价格在 50 日均线之上" value={form.spyAbove50} onChange={(v) => update("spyAbove50", v)} />
+                <Toggle label="QQQ 当前价格在 20 日均线之上" value={form.qqqAbove20} onChange={(v) => update("qqqAbove20", v)} />
+                <Toggle label="QQQ 当前价格在 50 日均线之上" value={form.qqqAbove50} onChange={(v) => update("qqqAbove50", v)} />
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <InfoBox label="QQQ 对 SPY" value={result.qqqStrength.ok ? "不弱" : "偏弱/未确认"} tone={result.qqqStrength.ok ? "green" : "yellow"} note={`已比较 ${result.qqqStrength.available} 项，跑赢 ${result.qqqStrength.passed} 项`} />
-                <InfoBox label="VIX 判断" value={toNum(form.vix) > 25 ? "恐慌" : toNum(form.vix) > 0 && toNum(form.vix) < 20 ? "低恐慌" : "中性/未填"} tone={toNum(form.vix) > 25 ? "red" : "slate"} note="VIX > 25 直接禁止新仓" />
+                <Info label="QQQ 对比 SPY" value={result.qqq.ok ? "QQQ 不弱" : "QQQ 偏弱/数据不足"} tone={result.qqq.ok ? "green" : "yellow"} note={`比较了 ${result.qqq.available} 项，QQQ 跑赢 ${result.qqq.passed} 项；至少 2 项跑赢才算不弱`} />
+                <Info label="恐慌判断" value={n(form.vix) > 25 || (filled(form.spyToday) && filled(form.qqqToday) && n(form.spyToday) <= -1.5 && n(form.qqqToday) <= -1.5) ? "风险偏高" : "未触发恐慌"} tone={n(form.vix) > 25 ? "red" : "slate"} note="VIX>25，或 SPY/QQQ 同时明显下跌，会自动拦截" />
               </div>
             </Card>
 
-            <Card title="3. 板块数据：自动判断板块是否强于大盘" icon={<EmojiIcon symbol="🏭" />} subtitle="例如 INTC 看 SMH/SOXX；科技股看 QQQ/XLK。输入板块 ETF 涨跌幅即可。">
-              <div className="grid gap-4 md:grid-cols-4">
-                <TextInput label="板块 ETF" value={form.sectorName} onChange={(v) => update("sectorName", v.toUpperCase())} placeholder="SMH" />
-                <NumberInput label="板块 ETF 当日涨跌幅" value={form.sectorDay} onChange={(v) => update("sectorDay", v)} suffix="%" />
-                <NumberInput label="板块 ETF 5日涨跌幅" value={form.sector5} onChange={(v) => update("sector5", v)} suffix="%" />
-                <NumberInput label="板块 ETF 20日涨跌幅" value={form.sector20} onChange={(v) => update("sector20", v)} suffix="%" />
+            <Card title="3. 板块数据：先选股票属于哪类，再抄板块 ETF 涨跌幅" icon={<Icon>🏭</Icon>} subtitle="不要自己想板块 ETF 代码。先选类型，系统告诉你该看哪个。然后从 Moomoo 抄今天、5日、1个月涨跌幅。">
+              <Select label="这只股票大概属于哪个方向" value={form.sectorType} onChange={(v) => update("sectorType", v)} options={sectorOptions} />
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <NumberInput label="板块 ETF 今天涨跌幅" value={form.sectorToday} onChange={(v) => update("sectorToday", v)} suffix="%" />
+                <NumberInput label="板块 ETF 5日涨跌幅" value={form.sector5d} onChange={(v) => update("sector5d", v)} suffix="%" />
+                <NumberInput label="板块 ETF 1个月涨跌幅" value={form.sector1m} onChange={(v) => update("sector1m", v)} suffix="%" />
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <Toggle label="板块 ETF 在 EMA20 上方" value={form.sectorAbove20} onChange={(v) => update("sectorAbove20", v)} />
-                <Toggle label="板块里的龙头大多数也强" value={form.leadersStrong} onChange={(v) => update("leadersStrong", v)} />
+                <Toggle label="板块 ETF 当前价格在 20 日均线之上" value={form.sectorAbove20} onChange={(v) => update("sectorAbove20", v)} />
+                <Toggle label="这个板块里几个龙头也在涨，不是只有我这只股票涨" value={form.leadersStrong} onChange={(v) => update("leadersStrong", v)} />
               </div>
               <div className="mt-4">
-                <InfoBox label="板块相对大盘" value={result.sectorStrength.ok ? "强于大盘" : "不强/未确认"} tone={result.sectorStrength.ok ? "green" : "yellow"} note={`已比较 ${result.sectorStrength.available} 项，跑赢 ${result.sectorStrength.passed} 项；至少 3 项跑赢才算强`} />
+                <Info label="板块对比大盘" value={result.sector.ok ? "板块强于大盘" : "板块不强/数据不足"} tone={result.sector.ok ? "green" : "yellow"} note={`比较了 ${result.sector.available} 项，板块跑赢 ${result.sector.passed} 项；至少 3 项跑赢才算强`} />
               </div>
             </Card>
 
-            <Card title="4. 个股数据：自动判断个股是否强于 QQQ / SPY" icon={<EmojiIcon symbol="📈" />} subtitle="输入个股当日、5日、20日涨跌幅，系统自动和 QQQ/SPY 比较。">
+            <Card title="4. 个股数据：从 Moomoo 抄个股涨跌幅" icon={<Icon>📈</Icon>} subtitle="输入这只股票今天、5日、1个月涨跌幅。系统会自动和 SPY/QQQ 比较。">
               <div className="grid gap-4 md:grid-cols-3">
-                <NumberInput label="个股当日涨跌幅" value={form.stockDay} onChange={(v) => update("stockDay", v)} suffix="%" />
-                <NumberInput label="个股 5日涨跌幅" value={form.stock5} onChange={(v) => update("stock5", v)} suffix="%" />
-                <NumberInput label="个股 20日涨跌幅" value={form.stock20} onChange={(v) => update("stock20", v)} suffix="%" />
+                <NumberInput label="个股今天涨跌幅" value={form.stockToday} onChange={(v) => update("stockToday", v)} suffix="%" />
+                <NumberInput label="个股 5日涨跌幅" value={form.stock5d} onChange={(v) => update("stock5d", v)} suffix="%" />
+                <NumberInput label="个股 1个月涨跌幅" value={form.stock1m} onChange={(v) => update("stock1m", v)} suffix="%" />
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <Toggle label="个股价格在 EMA20 上方" value={form.priceAbove20} onChange={(v) => update("priceAbove20", v)} />
-                <Toggle label="个股 EMA20 向上" value={form.ema20Up} onChange={(v) => update("ema20Up", v)} />
-                <Toggle label="EMA5 在 EMA20 上方" value={form.ema5Above20} onChange={(v) => update("ema5Above20", v)} />
+                <Toggle label="个股当前价格在 20 日均线之上" value={form.stockAbove20} onChange={(v) => update("stockAbove20", v)} />
+                <Toggle label="个股 20 日均线正在往上走" value={form.stock20Up} onChange={(v) => update("stock20Up", v)} />
+                <Toggle label="短期均线在 20 日均线之上" value={form.shortLineAbove20} onChange={(v) => update("shortLineAbove20", v)} />
               </div>
               <div className="mt-4">
-                <InfoBox label="个股相对强弱" value={result.stockStrength.ok ? "强于 QQQ / SPY" : "不强/未确认"} tone={result.stockStrength.ok ? "green" : "yellow"} note={`已比较 ${result.stockStrength.available} 项，跑赢 ${result.stockStrength.passed} 项；至少 3 项跑赢才算强`} />
+                <Info label="个股对比大盘" value={result.stock.ok ? "个股强于 QQQ/SPY" : "个股不强/数据不足"} tone={result.stock.ok ? "green" : "yellow"} note={`比较了 ${result.stock.available} 项，个股跑赢 ${result.stock.passed} 项；至少 3 项跑赢才算强`} />
               </div>
             </Card>
 
-            <Card title="5. 近期疑似放量大阴线计算器" icon={<EmojiIcon symbol="📉" />} subtitle="填最近 5 天里最像大阴线的那一天。如果没有，就填最近最弱的一天。系统自动判断。">
+            <Card title="5. 最近 5 天里有没有危险的大跌 K 线" icon={<Icon>📉</Icon>} subtitle="打开日线图，点最近 5 天里最弱的那一天，Moomoo 会显示开盘、最高、最低、收盘、成交量。成交量均线看 MAVOL10。全部直接抄，不要手算。">
               <div className="grid gap-4 md:grid-cols-3">
-                <NumberInput label="那天开盘价" value={form.bearOpen} onChange={(v) => update("bearOpen", v)} prefix="$" />
-                <NumberInput label="那天最高价" value={form.bearHigh} onChange={(v) => update("bearHigh", v)} prefix="$" />
-                <NumberInput label="那天最低价" value={form.bearLow} onChange={(v) => update("bearLow", v)} prefix="$" />
-                <NumberInput label="那天收盘价" value={form.bearClose} onChange={(v) => update("bearClose", v)} prefix="$" />
-                <NumberInput label="那天成交量" value={form.bearVolume} onChange={(v) => update("bearVolume", v)} />
-                <NumberInput label="10日平均成交量" value={form.bearAvgVolume10} onChange={(v) => update("bearAvgVolume10", v)} />
+                <NumberInput label="那天开盘价" value={form.weakOpen} onChange={(v) => update("weakOpen", v)} prefix="$" />
+                <NumberInput label="那天最高价" value={form.weakHigh} onChange={(v) => update("weakHigh", v)} prefix="$" />
+                <NumberInput label="那天最低价" value={form.weakLow} onChange={(v) => update("weakLow", v)} prefix="$" />
+                <NumberInput label="那天收盘价" value={form.weakClose} onChange={(v) => update("weakClose", v)} prefix="$" />
+                <NumberInput label="那天成交量 VOL" value={form.weakVolume} onChange={(v) => update("weakVolume", v)} hint="例如 82.5M 就填 82.5；单位要和 MAVOL10 一致" />
+                <NumberInput label="10 日平均成交量 MAVOL10" value={form.weakAvgVolume10} onChange={(v) => update("weakAvgVolume10", v)} hint="例如 50M 就填 50" />
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <InfoBox label="实体跌幅" value={`${result.bear.bodyDropPct.toFixed(2)}%`} note="≥2% 算明显下跌" />
-                <InfoBox label="成交量倍数" value={`${result.bear.volumeRatio.toFixed(2)}x`} note="≥1.5x 算放量" />
-                <InfoBox label="收盘位置" value={`${(result.bear.closePosition * 100).toFixed(0)}%`} note="≤30% 算收在低位" />
+                <Info label="这天跌了多少" value={`${result.weak.dropPct.toFixed(2)}%`} note="≥2% 算明显下跌" />
+                <Info label="成交量是平时几倍" value={`${result.weak.volumeTimes.toFixed(2)}x`} note="≥1.5x 算放量" />
+                <Info label="收盘靠不靠近最低点" value={`${(result.weak.closePlace * 100).toFixed(0)}%`} note="≤30% 说明收得很弱" />
               </div>
               <div className="mt-4">
-                <InfoBox label="放量大阴线判断" value={!result.bear.complete ? "数据未填完整" : result.bear.isBear ? "是，禁止交易" : "否，未触发"} tone={!result.bear.complete ? "yellow" : result.bear.isBear ? "red" : "green"} note="条件：收盘低于开盘、跌幅≥2%、量≥10日均量1.5倍、收盘在全天下30%" />
+                <Info label="系统判断" value={!result.weak.complete ? "数据未填完整" : result.weak.isBad ? "危险：疑似放量大跌" : "未触发危险大跌"} tone={!result.weak.complete ? "yellow" : result.weak.isBad ? "red" : "green"} note="只要触发危险大跌，系统会取消新交易" />
               </div>
             </Card>
 
-            <Card title="6. 买点类型测试" icon={<EmojiIcon symbol="✅" />} subtitle="只能选择 A/B/C 三种合法买点。其他买点默认非法。">
-              <Select label="本次买点类型" value={form.setupType} onChange={(v) => update("setupType", v)} options={setupOptions} />
+            <Card title="6. 买入理由：用大白话选择，不选术语" icon={<Icon>✅</Icon>} subtitle="系统只允许 3 种买入理由。三个都不是，就不要交易。">
+              <Select label="你这次想买，最接近哪一种情况？" value={form.setupType} onChange={(v) => update("setupType", v)} options={setupOptions} />
+              <div className="mt-3 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">{setupDescriptions[form.setupType]}</div>
               {form.setupType !== "other" && (
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {setupLabels[form.setupType].map((label, idx) => (
-                    <Toggle key={label} label={label} value={form.setupChecks[form.setupType][idx]} onChange={(v) => updateSetupCheck(form.setupType, idx, v)} />
+                    <Toggle key={label} label={label} value={form.setupChecks[form.setupType][idx]} onChange={(v) => updateSetup(form.setupType, idx, v)} />
                   ))}
                 </div>
               )}
             </Card>
 
-            <Card title="7. 简化版硬性否决项" icon={<EmojiIcon symbol="⛔" />} subtitle="这些不是扣分项。任何一个成立，系统会直接取消交易。">
+            <Card title="7. 一票否决：这些情况出现就不交易" icon={<Icon>⛔</Icon>} subtitle="不用懂专业术语。只要这句话符合你现在的情况，就勾上。勾上后系统会取消交易。">
               <div className="grid gap-3 md:grid-cols-2">
                 <Toggle label="财报快到了：距离财报少于 3 个交易日" value={form.hardVeto.earningsSoon} onChange={(v) => updateHard("earningsSoon", v)} danger />
                 <Toggle label="今天高开太多，而且没有回踩确认" value={form.hardVeto.gapNoPullback} onChange={(v) => updateHard("gapNoPullback", v)} danger />
-                <Toggle label="价格已经明显远离短期均线，我是在追高" value={form.hardVeto.farFromEma10} onChange={(v) => updateHard("farFromEma10", v)} danger />
+                <Toggle label="价格已经离短期均线太远，我是在追高" value={form.hardVeto.chasing} onChange={(v) => updateHard("chasing", v)} danger />
                 <Toggle label="今天冲高回落明显，可能是假突破" value={form.hardVeto.upperShadow} onChange={(v) => updateHard("upperShadow", v)} danger />
                 <Toggle label="我还没有提前写止损价" value={form.hardVeto.noStop} onChange={(v) => updateHard("noStop", v)} danger />
                 <Toggle label="我只是怕错过，所以想买" value={form.hardVeto.fomo} onChange={(v) => updateHard("fomo", v)} danger />
                 <Toggle label="我亏了以后想翻本，所以想买" value={form.hardVeto.revenge} onChange={(v) => updateHard("revenge", v)} danger />
-                <Toggle label="成交量太差，流动性不够" value={form.hardVeto.badLiquidity} onChange={(v) => updateHard("badLiquidity", v)} danger />
+                <Toggle label="成交量太差，买卖不够顺畅" value={form.hardVeto.badLiquidity} onChange={(v) => updateHard("badLiquidity", v)} danger />
               </div>
             </Card>
 
-            <Card title="8. 价格、止损与仓位计算" icon={<EmojiIcon symbol="💵" />} subtitle="输入买入价、止损价、目标价，系统自动计算盈亏比和股数。">
+            <Card title="8. 买入价、止损价、目标价" icon={<Icon>💵</Icon>} subtitle="这三个价格必须提前写。系统会自动算盈亏比、最大亏损、可以买多少股。">
               <div className="grid gap-4 md:grid-cols-2">
-                <NumberInput label="当前价，可选" value={form.currentPrice} onChange={(v) => update("currentPrice", v)} prefix="$" />
                 <NumberInput label="计划买入价" value={form.buyPrice} onChange={(v) => update("buyPrice", v)} prefix="$" />
-                <NumberInput label="技术止损价" value={form.stopPrice} onChange={(v) => update("stopPrice", v)} prefix="$" />
-                <NumberInput label="第一目标价" value={form.firstTarget} onChange={(v) => update("firstTarget", v)} prefix="$" />
-                <Select label="本次最大风险比例" value={form.riskPct} onChange={(v) => update("riskPct", v)} options={riskOptions} />
+                <NumberInput label="错了就卖的价格，也就是止损价" value={form.stopPrice} onChange={(v) => update("stopPrice", v)} prefix="$" />
+                <NumberInput label="第一目标价" value={form.targetPrice} onChange={(v) => update("targetPrice", v)} prefix="$" />
+                <Select label="这笔最多愿意亏账户多少" value={form.riskPct} onChange={(v) => update("riskPct", v)} options={riskOptions} />
               </div>
             </Card>
           </main>
 
           <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
-            <Card title="系统判定" icon={<EmojiIcon symbol={isCancel ? "⚠️" : "🟢"} />}>
+            <Card title="系统判定" icon={<Icon>{isCancel ? "⚠️" : "🟢"}</Icon>}>
               <div className={`rounded-2xl p-4 ${isCancel ? "bg-red-50" : "bg-emerald-50"}`}>
                 <p className="text-sm text-slate-500">最终动作</p>
                 <p className={`mt-1 text-2xl font-bold ${isCancel ? "text-red-700" : "text-emerald-700"}`}>{result.finalAction}</p>
                 <p className="mt-2 text-sm text-slate-600">系统判定：{result.rawDecision}</p>
               </div>
               <div className="mt-4 space-y-3">
-                <ScoreBar label="市场分" value={result.marketScore} max={20} />
+                <ScoreBar label="大盘分" value={result.marketScore} max={20} />
                 <ScoreBar label="板块分" value={result.sectorScore} max={15} />
-                <ScoreBar label="趋势分" value={result.trendScore} max={20} />
-                <ScoreBar label="买点分" value={result.setupScore} max={25} />
-                <ScoreBar label="风险分" value={result.riskScore} max={20} />
+                <ScoreBar label="个股趋势分" value={result.trendScore} max={20} />
+                <ScoreBar label="买入位置分" value={result.setupScore} max={25} />
+                <ScoreBar label="风险控制分" value={result.riskScore} max={20} />
                 <div className="rounded-xl bg-slate-100 p-4 text-center">
                   <div className="text-sm text-slate-500">总分</div>
                   <div className="text-3xl font-bold">{result.total}/100</div>
@@ -816,42 +766,42 @@ export default function TradingDecisionApp() {
               </div>
             </Card>
 
-            <Card title="交易参数输出" icon={<EmojiIcon symbol="💰" />}>
+            <Card title="交易参数输出" icon={<Icon>💰</Icon>}>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <InfoBox label="每股风险" value={`$${result.perShareRisk.toFixed(2)}`} />
-                <InfoBox label="盈亏比" value={result.rr ? `1:${result.rr.toFixed(2)}` : "--"} tone={result.rrInfo.tone} note={result.rrInfo.note} />
-                <InfoBox label="盈亏比等级" value={result.rrInfo.text} tone={result.rrInfo.tone} />
-                <InfoBox label="最大亏损" value={`$${result.maxLoss.toFixed(2)}`} />
-                <InfoBox label="仓位上限" value={`${(result.maxPositionPct * 100).toFixed(0)}%`} />
-                <InfoBox label="风险允许股数" value={`${result.riskShares}`} />
-                <InfoBox label="仓位允许股数" value={`${result.positionShares}`} />
+                <Info label="每股最多亏" value={`$${result.perShareRisk.toFixed(2)}`} />
+                <Info label="盈亏比" value={result.rr ? `1:${result.rr.toFixed(2)}` : "--"} tone={result.rrInfo.tone} note={result.rrInfo.note} />
+                <Info label="盈亏比等级" value={result.rrInfo.label} tone={result.rrInfo.tone} />
+                <Info label="这笔最多亏" value={`$${result.maxLoss.toFixed(2)}`} />
+                <Info label="系统仓位上限" value={`${(result.maxPositionPct * 100).toFixed(0)}%`} />
+                <Info label="按风险可买" value={`${result.riskShares} 股`} />
+                <Info label="按仓位可买" value={`${result.positionShares} 股`} />
                 <div className="col-span-2 rounded-xl bg-slate-950 p-4 text-white">
-                  <p className="text-sm text-slate-300">建议买入股数</p>
+                  <p className="text-sm text-slate-300">最终建议买入</p>
                   <p className="mt-1 text-3xl font-bold">{result.shares} 股</p>
-                  <p className="mt-2 text-sm text-slate-300">
-                    计划买入金额：${result.positionAmount.toFixed(2)}，实际仓位：{(result.actualPositionPct * 100).toFixed(1)}%，触发止损预计亏损：${result.actualLoss.toFixed(2)}
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    计划买入金额：${result.positionAmount.toFixed(2)}；实际仓位：{(result.actualPositionPct * 100).toFixed(1)}%；如果打到止损，预计亏损：${result.actualLoss.toFixed(2)}
                   </p>
                 </div>
               </div>
             </Card>
 
-            <Card title="取消原因 / 风险提示" icon={<EmojiIcon symbol="🚨" />}>
+            <Card title="为什么取消 / 风险提示" icon={<Icon>🚨</Icon>}>
               <div className="space-y-3 text-sm">
-                {allIssues.length === 0 ? (
-                  <p className="rounded-xl bg-emerald-50 p-3 text-emerald-800">暂无硬性否决。继续看系统输出，不代表一定要交易。</p>
+                {issues.length === 0 ? (
+                  <p className="rounded-xl bg-emerald-50 p-3 leading-6 text-emerald-800">暂无一票否决。继续看最终动作，不代表必须交易。</p>
                 ) : (
-                  allIssues.map((x) => <p key={x} className="rounded-xl bg-red-50 p-3 text-red-800">{x}</p>)
+                  issues.map((x) => <p key={x} className="rounded-xl bg-red-50 p-3 leading-6 text-red-800">{x}</p>)
                 )}
               </div>
             </Card>
 
-            <Card title="卖出规则" icon={<EmojiIcon symbol="📋" />}>
-              <div className="space-y-2 text-sm text-slate-700">
-                <p>硬止损：跌到技术止损价，清仓。</p>
-                <p>+1R：止损上移到成本附近。</p>
-                <p>+2R：卖出 20%-30%。</p>
-                <p>+3R：再卖出 20%-30%。</p>
-                <p>跌破 EMA20 / 前低 / 放量大阴线：清仓或大幅减仓。</p>
+            <Card title="卖出规则" icon={<Icon>📋</Icon>}>
+              <div className="space-y-2 text-sm leading-6 text-slate-700">
+                <p>跌到止损价：直接卖，不解释。</p>
+                <p>盈利达到 1R：把止损抬到成本附近。</p>
+                <p>盈利达到 2R：卖出 20%-30%。</p>
+                <p>盈利达到 3R：再卖出 20%-30%。</p>
+                <p>跌破 20 日均线、跌破前低、放量大跌：清仓或大幅减仓。</p>
               </div>
             </Card>
 
